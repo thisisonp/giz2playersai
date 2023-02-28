@@ -7,11 +7,42 @@ import os
 from GizmosEnv import ActionType
 env = GizmosEnv(player_num=2,log=False)
 debug_round = 1000
-class Critic(torch.nn.Module):
-    def __init__(self, feature_len):
-        super(Critic, self).__init__()
-        self.cnt = 0
+class IDGenerator(object):
+    def __init__(self):
         self.d = {}
+        self.cnt = 0
+    def gen_unique_id(self, px, _data, i=-1, energe_flag=False):
+        if i == -1:
+            data = str(_data)
+            if (px + data) not in self.d.keys():
+                self.d[(px + data)] = self.cnt
+                self.cnt += 1
+            return self.d[(px + data)]
+        else:
+            data = _data
+            name = px
+            if len(data) <= i:
+                name += "none"
+            else:
+                if energe_flag:
+                    name += str(data[i])
+                else:
+                    name += str(data[i]['id']) + str(data[i]['used'])
+            if (name) not in self.d.keys():
+                self.d[name] = self.cnt
+                self.cnt += 1
+            return self.d[name]
+    def restore(self, _d):
+        self.d = {}
+        self.cnt = 0
+        for k, v in _d:
+            self.d[k] = v
+            self.cnt += 1
+
+class Critic(torch.nn.Module):
+    def __init__(self, feature_len, idg):
+        super(Critic, self).__init__()
+        self.idg = idg
         self.feature_len = feature_len
         self.embedding_len = 32
         # self.device = 'cpu'
@@ -50,140 +81,113 @@ class Critic(torch.nn.Module):
         return env.action_space[torch.argmax(yhat)]
     def loss(self, y, yhat):
         return self.loss_op(y.view(-1, 1), yhat)
-    def restore(self, _d):
-        # if os.path.exists(ckpt_path):
-        #     critic = torch.load(ckpt_path)
-        self.d = {}
-        self.cnt = 0
-        for k, v in _d:
-            self.d[k] = v
-            self.cnt += 1
+    
     def get_context_feature(self, info, np):
-        def gen_unique_id(px, _data, i=-1, energe_flag=False):
-            if i == -1:
-                data = str(_data)
-                if (px + data) not in self.d.keys():
-                    self.d[(px + data)] = self.cnt
-                    self.cnt += 1
-                return d[(px + data)]
-            else:
-                data = _data
-                name = px
-                if len(data) <= i:
-                    name += "none"
-                else:
-                    if energe_flag:
-                        name += str(data[i])
-                    else:
-                        name += str(data[i]['id']) + str(data[i]['used'])
-                if (name) not in self.d.keys():
-                    self.d[name] = self.cnt
-                    self.cnt += 1
-                return d[name]
-        return [gen_unique_id('curr_stage', str(info['curr_stage'])),
-                gen_unique_id('curr_turn', info['curr_turn']),
-                gen_unique_id('energy_board', info['energy_board'], 0, True),
-                gen_unique_id('energy_board', info['energy_board'], 1, True),
-                gen_unique_id('energy_board', info['energy_board'], 2, True),
-                gen_unique_id('energy_board', info['energy_board'], 3, True),
-                gen_unique_id('energy_board', info['energy_board'], 4, True),
-                gen_unique_id('energy_board', info['energy_board'], 5, True),
-                gen_unique_id('gizmos_board', info['gizmos_board'][1], 0),
-                gen_unique_id('gizmos_board', info['gizmos_board'][1], 1),
-                gen_unique_id('gizmos_board', info['gizmos_board'][1], 2),
-                gen_unique_id('gizmos_board', info['gizmos_board'][1], 3),
-                gen_unique_id('gizmos_board', info['gizmos_board'][2], 0),
-                gen_unique_id('gizmos_board', info['gizmos_board'][2], 1),
-                gen_unique_id('gizmos_board', info['gizmos_board'][2], 2),
-                gen_unique_id('gizmos_board', info['gizmos_board'][3][0]),
-                gen_unique_id('gizmos_board', info['gizmos_board'][3][1]),
-                gen_unique_id('free_pick_num', info['free_pick_num']),
-                gen_unique_id('players_giz', info['players'][np]['file_gizmos'], 0),
-                gen_unique_id('players_giz', info['players'][np]['file_gizmos'], 1),
-                gen_unique_id('players_giz', info['players'][np]['file_gizmos'], 2),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 0),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 1),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 2),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 3),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 4),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 5),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 6),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 7),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 8),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 9),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 10),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 11),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 12),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 13),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 14),
-                gen_unique_id('players_giz', info['players'][np]['gizmos'], 15),
-                gen_unique_id('players_giz', info['players'][1 - np]['file_gizmos'], 0),
-                gen_unique_id('players_giz', info['players'][1 - np]['file_gizmos'], 1),
-                gen_unique_id('players_giz', info['players'][1 - np]['file_gizmos'], 2),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 0),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 1),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 2),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 3),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 4),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 5),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 6),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 7),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 8),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 9),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 10),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 11),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 12),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 13),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 14),
-                gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 15),
-                gen_unique_id('ball', info['players'][np]['energy_num']['red']),
-                gen_unique_id('ball', info['players'][np]['energy_num']['black']),
-                gen_unique_id('ball', info['players'][np]['energy_num']['blue']),
-                gen_unique_id('ball', info['players'][np]['energy_num']['yellow']),
-                gen_unique_id('ball', info['players'][1 - np]['energy_num']['red']),
-                gen_unique_id('ball', info['players'][1 - np]['energy_num']['black']),
-                gen_unique_id('ball', info['players'][1 - np]['energy_num']['blue']),
-                gen_unique_id('ball', info['players'][1 - np]['energy_num']['yellow'])
+        return [self.idg.gen_unique_id('curr_stage', str(info['curr_stage'])),
+                self.idg.gen_unique_id('curr_turn', info['curr_turn']),
+                self.idg.gen_unique_id('energy_board', info['energy_board'], 0, True),
+                self.idg.gen_unique_id('energy_board', info['energy_board'], 1, True),
+                self.idg.gen_unique_id('energy_board', info['energy_board'], 2, True),
+                self.idg.gen_unique_id('energy_board', info['energy_board'], 3, True),
+                self.idg.gen_unique_id('energy_board', info['energy_board'], 4, True),
+                self.idg.gen_unique_id('energy_board', info['energy_board'], 5, True),
+                self.idg.gen_unique_id('gizmos_board', info['gizmos_board'][1], 0),
+                self.idg.gen_unique_id('gizmos_board', info['gizmos_board'][1], 1),
+                self.idg.gen_unique_id('gizmos_board', info['gizmos_board'][1], 2),
+                self.idg.gen_unique_id('gizmos_board', info['gizmos_board'][1], 3),
+                self.idg.gen_unique_id('gizmos_board', info['gizmos_board'][2], 0),
+                self.idg.gen_unique_id('gizmos_board', info['gizmos_board'][2], 1),
+                self.idg.gen_unique_id('gizmos_board', info['gizmos_board'][2], 2),
+                self.idg.gen_unique_id('gizmos_board', info['gizmos_board'][3][0]),
+                self.idg.gen_unique_id('gizmos_board', info['gizmos_board'][3][1]),
+                self.idg.gen_unique_id('free_pick_num', info['free_pick_num']),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['file_gizmos'], 0),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['file_gizmos'], 1),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['file_gizmos'], 2),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 0),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 1),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 2),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 3),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 4),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 5),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 6),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 7),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 8),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 9),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 10),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 11),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 12),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 13),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 14),
+                self.idg.gen_unique_id('players_giz', info['players'][np]['gizmos'], 15),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['file_gizmos'], 0),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['file_gizmos'], 1),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['file_gizmos'], 2),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 0),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 1),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 2),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 3),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 4),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 5),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 6),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 7),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 8),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 9),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 10),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 11),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 12),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 13),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 14),
+                self.idg.gen_unique_id('players_giz', info['players'][1 - np]['gizmos'], 15),
+                self.idg.gen_unique_id('ball', info['players'][np]['energy_num']['red']),
+                self.idg.gen_unique_id('ball', info['players'][np]['energy_num']['black']),
+                self.idg.gen_unique_id('ball', info['players'][np]['energy_num']['blue']),
+                self.idg.gen_unique_id('ball', info['players'][np]['energy_num']['yellow']),
+                self.idg.gen_unique_id('ball', info['players'][1 - np]['energy_num']['red']),
+                self.idg.gen_unique_id('ball', info['players'][1 - np]['energy_num']['black']),
+                self.idg.gen_unique_id('ball', info['players'][1 - np]['energy_num']['blue']),
+                self.idg.gen_unique_id('ball', info['players'][1 - np]['energy_num']['yellow'])
                 ]
-    def add_action(self, feature, j):
-        feature.append(gen_unique_id("actiontype", str(j['type'])))
+    def add_action_feature(self, feature, j):
+        feature.append(self.idg.gen_unique_id("actiontype", str(j['type'])))
         if j['type'] == ActionType.RESEARCH:
-            feature.append(gen_unique_id("level", str(j['level'])))
-            feature.append(gen_unique_id("res", "-1"))
-            feature.append(gen_unique_id("res", "-1"))
+            feature.append(self.idg.gen_unique_id("level", str(j['level'])))
+            feature.append(self.idg.gen_unique_id("res", "-1"))
+            feature.append(self.idg.gen_unique_id("res", "-1"))
         elif j['type'] == ActionType.PICK:
-            feature.append(gen_unique_id("energy", str(j['energy'])))
-            feature.append(gen_unique_id("pic", "-1"))
-            feature.append(gen_unique_id("pic", "-1"))
+            feature.append(self.idg.gen_unique_id("energy", str(j['energy'])))
+            feature.append(self.idg.gen_unique_id("pic", "-1"))
+            feature.append(self.idg.gen_unique_id("pic", "-1"))
         elif j['type'] == ActionType.END:
-            feature.append(gen_unique_id("en", "-1"))
-            feature.append(gen_unique_id("en", "-1"))
-            feature.append(gen_unique_id("en", "-1"))
+            feature.append(self.idg.gen_unique_id("en", "-1"))
+            feature.append(self.idg.gen_unique_id("en", "-1"))
+            feature.append(self.idg.gen_unique_id("en", "-1"))
         elif j['type'] == ActionType.GIVE_UP:
-            feature.append(gen_unique_id("gi", "-1"))
-            feature.append(gen_unique_id("gi", "-1"))
-            feature.append(gen_unique_id("gi", "-1"))
+            feature.append(self.idg.gen_unique_id("gi", "-1"))
+            feature.append(self.idg.gen_unique_id("gi", "-1"))
+            feature.append(self.idg.gen_unique_id("gi", "-1"))
         elif j['type'] == ActionType.USE_GIZMO or j['type'] == ActionType.FILE or j[
             'type'] == ActionType.FILE_FROM_RESEARCH:
-            feature.append(gen_unique_id("ffr", str(j['id'])))
-            feature.append(gen_unique_id("ffr", "-1"))
-            feature.append(gen_unique_id("ffr", "-1"))
+            feature.append(self.idg.gen_unique_id("ffr", str(j['id'])))
+            feature.append(self.idg.gen_unique_id("ffr", "-1"))
+            feature.append(self.idg.gen_unique_id("ffr", "-1"))
         else:
             if 'id' not in j.keys():
                 print("??", str(j['type']))
-            feature.append(gen_unique_id("id", str(j['id'])))
+            feature.append(self.idg.gen_unique_id("id", str(j['id'])))
             if j['type'] == ActionType.BUILD_FOR_FREE:
-                feature.append(gen_unique_id("cos", "-1"))
-                feature.append(gen_unique_id("ccg", "-1"))
+                feature.append(self.idg.gen_unique_id("cos", "-1"))
+                feature.append(self.idg.gen_unique_id("ccg", "-1"))
             else:
-                feature.append(gen_unique_id("cost", str(j['cost_energy_num'])))
-                feature.append(gen_unique_id("cost_converter_gizmos_id", str(len(j['cost_converter_gizmos_id']))))
+                feature.append(self.idg.gen_unique_id("cost", str(j['cost_energy_num'])))
+                feature.append(self.idg.gen_unique_id("cost_converter_gizmos_id", str(len(j['cost_converter_gizmos_id']))))
 times = 0
 
 critic = [None, None]
 optimizer = [None, None]
-critic[0] = Critic(64 + 4)
-critic[1] = Critic(64 + 4)
+idg = IDGenerator()
+critic[0] = Critic(64 + 4, idg)
+critic[1] = Critic(64 + 4, idg)
 # optimizer = torch.optim.Adam(critic.parameters(), lr=0.01)
 # optimizer = torch.optim.RMSprop(critic.parameters())
 optimizer[0] = torch.optim.SGD(critic[0].parameters(), lr=0.01)
@@ -217,7 +221,7 @@ for i in range(1000000):
             if j['type'] == ActionType.END:
                 endact = j
                 continue
-            add(feature, j)
+            critic[0].add_action_feature(feature, j)
             ti.append(copy.copy(feature))
             feature = feature[:-4]
         # if times % debug_round == 0:
@@ -237,10 +241,10 @@ for i in range(1000000):
             at = endact
         else:
             at = env.action_space[torch.argmax(best_action)]
-        add(feature, at)
+        critic[0].add_action_feature(feature, at)
 
         traj.append(str(at))
-        # feature.append(gen_unique_id("action", str(at)))
+        # feature.append(self.idg.gen_unique_id("action", str(at)))
         input[np].append(list(map(int,feature)))
         output[np].append(0)
         # last_ball = now_ball
@@ -282,7 +286,7 @@ for i in range(1000000):
     if times % debug_round == 0:
         print("step", times)
     if times % 10 == 0:
-        print("Games played:", times, "; token seen:", cnt, "; loss:",float(loss), "; end turn", env.observation(0)['curr_turn'], "; final score",  env.observation(0)['players'][0]['score'],  env.observation(0)['players'][1]['score'])
+        print("Games played:", times, "; token seen:", idg.cnt, "; loss:",float(loss), "; end turn", env.observation(0)['curr_turn'], "; final score",  env.observation(0)['players'][0]['score'],  env.observation(0)['players'][1]['score'])
 
     if times == 20000:
         ff = open("d.txt", "w")
