@@ -5,6 +5,11 @@ import copy
 import random
 import os
 from GizmosEnv import ActionType
+# from torch.utils.tensorboard import SummaryWriter
+# writer = SummaryWriter('./log')
+import visdom
+vis = visdom.Visdom(env='giz')
+
 env = GizmosEnv(player_num=2,log=False)
 debug_round = 1000
 class IDGenerator(object):
@@ -233,7 +238,7 @@ for i in range(1000000):
             U = torch.rand(shape)
             return -torch.log(-torch.log(U + eps) + eps)
         if random.random() < 0.05:
-            best_action = sample_gumbel(yhat.shape) / 1.0
+            best_action = torch.randn(yhat.shape) / 1.0
         else:
             best_action = yhat # + sample_gumbel(yhat.shape) / 10000.0
         # print(yhat, best_action)
@@ -283,14 +288,15 @@ for i in range(1000000):
         optimizer[pl].step()
 
     times += 1
-    if times % debug_round == 0:
-        print("step", times)
-    if times % 10 == 0:
-        print("Games played:", times, "; token seen:", idg.cnt, "; loss:",float(loss), "; end turn", env.observation(0)['curr_turn'], "; final score",  env.observation(0)['players'][0]['score'],  env.observation(0)['players'][1]['score'])
-
-    if times == 20000:
-        ff = open("d.txt", "w")
-        for dk in d.keys():
-            ff.write(dk + "\n")
-        ff.close()
-    f.write(str(winner) + "," + str(env.observation(0)['players'][0]['score'])  + "," + str(env.observation(0)['players'][1]['score']) + "," + str(env.observation(0)['curr_turn']) + "\n")
+    # vis.add_scalar('loss', float(loss), global_step=times)
+    # vis.add_scalar('end turn', info['curr_turn'], global_step=times)
+    # vis.add_scalar('score/p1', info['players'][0]['score'], global_step=times)
+    # print(torch.tensor([times, ]), torch.tensor([info['players'][0]['score'], ]))
+    vis.line(X=torch.tensor([times, ]), Y=torch.tensor([info['players'][0]['score'], ]), win='score/p1', update='append' if i> 0 else None)
+    vis.line(X=torch.tensor([times, ]), Y=torch.tensor([info['players'][1]['score'], ]), win='score/p2', update='append' if i> 0 else None)
+    # if times == 20000:
+    #     ff = open("d.txt", "w")
+    #     for dk in d.keys():
+    #         ff.write(dk + "\n")
+    #     ff.close()
+    # f.write(str(winner) + "," + str(env.observation(0)['players'][0]['score'])  + "," + str(env.observation(0)['players'][1]['score']) + "," + str(env.observation(0)['curr_turn']) + "\n")
